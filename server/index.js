@@ -1,5 +1,6 @@
 require("dotenv").config();
 
+const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const cors = require("cors");
@@ -278,8 +279,26 @@ async function getSheetsClient() {
     throw new Error("SPREADSHEET_ID is not configured");
   }
 
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
-  credentials.private_key = credentials.private_key.replace(/\\n/g, "\n");
+  let credentialsJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  if (!credentialsJson && process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    const credentialsPath = path.resolve(__dirname, process.env.GOOGLE_APPLICATION_CREDENTIALS);
+    credentialsJson = fs.readFileSync(credentialsPath, "utf8");
+  }
+
+  if (!credentialsJson) {
+    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not configured");
+  }
+
+  let credentials;
+  try {
+    credentials = JSON.parse(credentialsJson);
+  } catch (error) {
+    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON must be valid JSON");
+  }
+
+  if (typeof credentials.private_key === "string") {
+    credentials.private_key = credentials.private_key.replace(/\\n/g, "\n");
+  }
 
   const auth = new google.auth.GoogleAuth({
     credentials,
