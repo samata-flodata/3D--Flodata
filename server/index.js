@@ -61,7 +61,7 @@ const ATTENDANCE_HEADERS = [
   "SignOutAltitudeAccuracy",
 ];
 
-app.use(cors({
+const corsOptions = {
   origin(origin, callback) {
     if (!origin || ALLOWED_ORIGINS.includes("*") || ALLOWED_ORIGINS.includes(origin)) {
       callback(null, true);
@@ -69,11 +69,13 @@ app.use(cors({
     }
     callback(new Error(`CORS blocked origin: ${origin}`));
   },
-}));
-app.use(express.json({ limit: "64kb" }));
+};
 
 const frontendDistPath = path.resolve(__dirname, "..", ".cesium_demo", "dist");
 app.use(express.static(frontendDistPath));
+
+app.use("/api", cors(corsOptions));
+app.use("/api", express.json({ limit: "64kb" }));
 
 app.use((req, res, next) => {
   if (req.path.startsWith("/api/attendance")) {
