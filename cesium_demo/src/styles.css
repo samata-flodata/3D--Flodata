@@ -5296,6 +5296,16 @@ body.floor-loading-active #toastContainer {
   overflow-wrap: anywhere;
 }
 
+.attendance-info-row--address {
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.attendance-info-row--address strong {
+  max-width: 175px;
+  line-height: 1.35;
+}
+
 .attendance-badge {
   padding: 2px 8px;
   border-radius: 20px;

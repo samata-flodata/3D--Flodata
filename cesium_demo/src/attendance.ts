@@ -43,6 +43,7 @@ type AttendanceSample = {
   timestamp: number;
   distanceFromOffice: number;
   speedKmh: number | null;
+  bearing: number | null;
 };
 
 type AttendanceServerStatus = {
@@ -61,6 +62,8 @@ const MOTION_NOISE_FLOOR = 0.035;
 const MOTION_VELOCITY_DAMPING = 0.82;
 const GPS_JUMP_REJECT_METERS = 150;
 const GPS_JUMP_REJECT_WINDOW_MS = 120000;
+const ADDRESS_REFRESH_INTERVAL_MS = 30000;
+const ADDRESS_REFRESH_DISTANCE_METERS = 25;
 
 let watchId: number | null = null;
 let activeUser: AttendanceUser | null = null;
@@ -71,6 +74,7 @@ let lastPosition: GeolocationPosition | null = null;
 let officeEndTimer: ReturnType<typeof setTimeout> | null = null;
 let verificationSamples: AttendanceSample[] = [];
 let previousSample: AttendanceSample | null = null;
+let baseAltitudeMeters: number | null = null;
 let lastAltitudeMeters: number | null = null;
 let pressureSensor: PressureSensor | null = null;
 let baselinePressureHpa: number | null = null;
@@ -82,6 +86,9 @@ let motionVelocityMetersPerSecond = 0;
 let motionBaselineAcceleration: number | null = null;
 let lastMotionTimestampMs: number | null = null;
 let motionSensorActive = false;
+let lastAddressLookupAt = 0;
+let lastAddressLookupPoint: { lat: number; lng: number } | null = null;
+let addressLookupInFlight = false;
 let stateSyncInFlight = false;
 
 function readAttendanceState(): StoredAttendanceState {
@@ -132,9 +139,13 @@ function setMetrics(values: {
   longitude?: number;
   altitude?: number | null;
   altitudeAccuracy?: number | null;
+  baseAltitude?: number | null;
+  relativeElevation?: number | null;
   elevationDelta?: number | null;
   speedKmh?: number | null;
+  bearing?: number | null;
   updatedAt?: number;
+  address?: string;
   progress?: string;
   status?: AttendanceFlag | "WAITING" | "VERIFYING" | "SIGNED_IN" | "SIGNED_OUT";
   lastSignIn?: string;
@@ -145,6 +156,13 @@ function setMetrics(values: {
   if (typeof values.longitude === "number") setText("attendanceLongitude", values.longitude.toFixed(7));
   if (values.altitude === null) setText("attendanceAltitude", "Not available");
   if (typeof values.altitude === "number") setText("attendanceAltitude", `${values.altitude.toFixed(ELEVATION_DECIMAL_PLACES)}m`);
+  if (values.baseAltitude === null) setText("attendanceBaseAltitude", "--");
+  if (typeof values.baseAltitude === "number") setText("attendanceBaseAltitude", `${values.baseAltitude.toFixed(ELEVATION_DECIMAL_PLACES)}m`);
+  if (values.relativeElevation === null) setText("attendanceRelativeElevation", "--");
+  if (typeof values.relativeElevation === "number") {
+    const sign = values.relativeElevation > 0 ? "+" : "";
+    setText("attendanceRelativeElevation", `${sign}${values.relativeElevation.toFixed(ELEVATION_DECIMAL_PLACES)}m`);
+  }
   if (values.altitudeAccuracy === null) setText("attendanceAltitudeAccuracy", "Not available");
   if (typeof values.altitudeAccuracy === "number") setText("attendanceAltitudeAccuracy", `+/-${values.altitudeAccuracy.toFixed(ELEVATION_DECIMAL_PLACES)}m`);
   if (values.elevationDelta === null) setText("attendanceElevationDelta", "--");
@@ -154,7 +172,10 @@ function setMetrics(values: {
   }
   if (values.speedKmh === null) setText("attendanceSpeed", "--");
   if (typeof values.speedKmh === "number") setText("attendanceSpeed", `${values.speedKmh.toFixed(1)} km/h`);
-  if (typeof values.updatedAt === "number") setText("attendanceLastGpsUpdate", new Date(values.updatedAt).toLocaleTimeString());
+  if (values.bearing === null) setText("attendanceBearing", "--");
+  if (typeof values.bearing === "number") setText("attendanceBearing", formatBearing(values.bearing));
+  if (typeof values.updatedAt === "number") setText("attendanceLastGpsUpdate", new Date(values.updatedAt).toLocaleString());
+  if (values.address) setText("attendanceAddress", values.address);
   if (values.progress) setText("attendanceProgress", values.progress);
   if (values.status) {
     const badge = document.getElementById("attendanceCurrentStatus");
@@ -194,6 +215,13 @@ function attendanceApiUrl(path: string): string {
   return `${ATTENDANCE_API_BASE_URL.replace(/\/$/, "")}${path}`;
 }
 
+function formatBearing(bearing: number): string {
+  const normalized = ((bearing % 360) + 360) % 360;
+  const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  const direction = directions[Math.round(normalized / 45) % directions.length];
+  return `${normalized.toFixed(0)} deg ${direction}`;
+}
+
 function distanceMeters(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
   const radius = 6371008.8;
   const lat1 = a.lat * Math.PI / 180;
@@ -204,6 +232,51 @@ function distanceMeters(a: { lat: number; lon: number }, b: { lat: number; lon: 
     Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
   return 2 * radius * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+function bearingDegrees(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+  const lat1 = a.lat * Math.PI / 180;
+  const lat2 = b.lat * Math.PI / 180;
+  const dLon = (b.lon - a.lon) * Math.PI / 180;
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+async function updateAddress(sample: AttendanceSample): Promise<void> {
+  const now = Date.now();
+  if (addressLookupInFlight) return;
+  if (lastAddressLookupPoint) {
+    const moved = distanceMeters(
+      { lat: lastAddressLookupPoint.lat, lon: lastAddressLookupPoint.lng },
+      { lat: sample.lat, lon: sample.lng }
+    );
+    if (moved < ADDRESS_REFRESH_DISTANCE_METERS && now - lastAddressLookupAt < ADDRESS_REFRESH_INTERVAL_MS) return;
+  }
+
+  addressLookupInFlight = true;
+  lastAddressLookupAt = now;
+  lastAddressLookupPoint = { lat: sample.lat, lng: sample.lng };
+  setMetrics({ address: "Resolving..." });
+
+  try {
+    const url = new URL("https://nominatim.openstreetmap.org/reverse");
+    url.searchParams.set("format", "jsonv2");
+    url.searchParams.set("lat", String(sample.lat));
+    url.searchParams.set("lon", String(sample.lng));
+    url.searchParams.set("zoom", "18");
+    url.searchParams.set("addressdetails", "1");
+    const response = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+    });
+    const data = await response.json().catch(() => null) as { display_name?: string } | null;
+    setMetrics({ address: data?.display_name || "Address unavailable" });
+  } catch (error) {
+    console.warn("[Attendance] address lookup failed:", error);
+    setMetrics({ address: "Address unavailable" });
+  } finally {
+    addressLookupInFlight = false;
+  }
 }
 
 function sampleSpreadMeters(samples: AttendanceSample[]): number {
@@ -338,6 +411,23 @@ function stopElevationSensor(): void {
   resetMotionElevation();
 }
 
+function resetLiveLocationReference(): void {
+  baseAltitudeMeters = null;
+  lastAltitudeMeters = null;
+  previousSample = null;
+  lastAddressLookupAt = 0;
+  lastAddressLookupPoint = null;
+  addressLookupInFlight = false;
+  setMetrics({
+    baseAltitude: null,
+    relativeElevation: null,
+    elevationDelta: null,
+    speedKmh: null,
+    bearing: null,
+    address: "--",
+  });
+}
+
 function buildSample(position: GeolocationPosition): AttendanceSample {
   const timestamp = position.timestamp || Date.now();
   const lat = position.coords.latitude;
@@ -355,6 +445,9 @@ function buildSample(position: GeolocationPosition): AttendanceSample {
     : hasMotionAltitude ? "motion" : typeof gpsAltitude === "number" ? "gps" : "none";
   const distanceFromOffice = distanceMeters({ lat, lon: lng }, ATTENDANCE_BUILDING_CENTER);
   let speedKmh: number | null = null;
+  let bearing: number | null = typeof position.coords.heading === "number" && Number.isFinite(position.coords.heading)
+    ? position.coords.heading
+    : null;
   const elevationDelta = hasBarometerAltitude
     ? lastBarometerAltitudeMeters === null ? null : barometerAltitude - lastBarometerAltitudeMeters
     : hasMotionAltitude ? motionDelta
@@ -365,6 +458,9 @@ function buildSample(position: GeolocationPosition): AttendanceSample {
     const jumpMeters = distanceMeters({ lat: previousSample.lat, lon: previousSample.lng }, { lat, lon: lng });
     const elapsedHours = Math.max(0.000001, (timestamp - previousSample.timestamp) / 3600000);
     speedKmh = jumpMeters / 1000 / elapsedHours;
+    if (jumpMeters >= 1) {
+      bearing = bearingDegrees({ lat: previousSample.lat, lon: previousSample.lng }, { lat, lon: lng });
+    }
 
     if (speedKmh > ATTENDANCE_CONFIG.MAX_SPEED_KMH) {
       console.warn("[Attendance] Suspicious speed:", Math.round(speedKmh), "km/h");
@@ -384,12 +480,17 @@ function buildSample(position: GeolocationPosition): AttendanceSample {
     elevationSource,
     timestamp,
     distanceFromOffice,
-    speedKmh
+    speedKmh,
+    bearing
   };
   return sample;
 }
 
 function acceptSample(sample: AttendanceSample): void {
+  if (baseAltitudeMeters === null && sample.altitude !== null) {
+    baseAltitudeMeters = sample.altitude;
+  }
+
   if (sample.elevationSource === "barometer" && sample.altitude !== null) {
     lastBarometerAltitudeMeters = sample.altitude;
   }
@@ -670,6 +771,9 @@ async function handlePosition(position: GeolocationPosition): Promise<void> {
   }
 
   acceptSample(sample);
+  const relativeElevation = sample.altitude !== null && baseAltitudeMeters !== null
+    ? sample.altitude - baseAltitudeMeters
+    : null;
 
   setMetrics({
     accuracy: sample.accuracy,
@@ -678,12 +782,16 @@ async function handlePosition(position: GeolocationPosition): Promise<void> {
     longitude: sample.lng,
     altitude: sample.altitude,
     altitudeAccuracy: sample.altitudeAccuracy,
+    baseAltitude: baseAltitudeMeters,
+    relativeElevation,
     elevationDelta: sample.elevationDelta,
     speedKmh: sample.speedKmh,
+    bearing: sample.bearing,
     updatedAt: sample.timestamp,
     progress: `${verificationSamples.length}/${ATTENDANCE_CONFIG.REQUIRED_SAMPLES} samples`,
     status: attendanceState.signedIn ? "SIGNED_IN" : "WAITING",
   });
+  void updateAddress(sample);
 
   if (!attendanceState.signedIn) {
     if (!isWithinOfficeHours()) {
@@ -772,6 +880,7 @@ export function startAttendanceTracking(email: string, name = ""): void {
   if (attendanceState.email && attendanceState.email !== email) {
     clearAttendanceState();
     resetVerification();
+    resetLiveLocationReference();
   }
 
   console.log("[Attendance] tracking started for", email);
@@ -802,6 +911,7 @@ export function stopAttendanceTracking(): void {
   outsideSamples = 0;
   clearOfficeEndTimer();
   resetVerification();
+  resetLiveLocationReference();
   console.log("[Attendance] tracking stopped");
   setAttendanceStatus({
     active: false,
