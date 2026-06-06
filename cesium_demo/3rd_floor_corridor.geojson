@@ -1,0 +1,18 @@
+{
+"type": "FeatureCollection",
+"name": "3rd_floor_corridor",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "id": 1, "Floor": "3rd", "Latitude": 28.670895046752591, "Longitude": 77.133681167390179, "room_name": "Employee sitting places" }, "geometry": { "type": "Point", "coordinates": [ 77.133681167390179, 28.670895046752591 ] } },
+{ "type": "Feature", "properties": { "id": 3, "Floor": "3rd", "Latitude": 28.670955769440614, "Longitude": 77.133640638053635, "room_name": "Employee sitting places" }, "geometry": { "type": "Point", "coordinates": [ 77.133642888974407, 28.670952239807892 ] } },
+{ "type": "Feature", "properties": { "id": 5, "Floor": "3rd", "Latitude": 28.670962369759167, "Longitude": 77.133650001913338, "room_name": "Employee sitting places" }, "geometry": { "type": "Point", "coordinates": [ 77.133652252834111, 28.670958840126445 ] } },
+{ "type": "Feature", "properties": { "id": 6, "Floor": "3rd", "Latitude": 28.670969050310362, "Longitude": 77.133659213082012, "room_name": "Employee sitting places" }, "geometry": { "type": "Point", "coordinates": [ 77.133661464002785, 28.67096552067764 ] } },
+{ "type": "Feature", "properties": { "id": 7, "Floor": "3rd", "Latitude": 28.670975023449842, "Longitude": 77.133667790435013, "room_name": "Employee sitting places" }, "geometry": { "type": "Point", "coordinates": [ 77.133670041355785, 28.67097149381712 ] } },
+{ "type": "Feature", "properties": { "id": 8, "Floor": "3rd", "Latitude": 28.670980891828119, "Longitude": 77.13367457574742, "room_name": "Employee sitting places" }, "geometry": { "type": "Point", "coordinates": [ 77.133676826668193, 28.670977362195398 ] } },
+{ "type": "Feature", "properties": { "id": 9, "Floor": "3rd", "Latitude": 28.670991619957174, "Longitude": 77.13366728612128, "room_name": "Employee sitting places" }, "geometry": { "type": "Point", "coordinates": [ 77.133669537042053, 28.670988090324453 ] } },
+{ "type": "Feature", "properties": { "id": 10, "Floor": "3rd", "Latitude": 28.670996518550101, "Longitude": 77.133664100682267, "room_name": "Employee sitting places" }, "geometry": { "type": "Point", "coordinates": [ 77.13366635160304, 28.67099298891738 ] } },
+{ "type": "Feature", "properties": { "id": 11, "Floor": "3rd", "Latitude": 28.67100587846771, "Longitude": 77.13365619981019, "room_name": "Employee sitting places" }, "geometry": { "type": "Point", "coordinates": [ 77.133658450730962, 28.671002348834989 ] } },
+{ "type": "Feature", "properties": { "id": 12, "Floor": "3rd", "Latitude": 28.671009259458181, "Longitude": 77.133660798494915, "room_name": "Employee sitting places" }, "geometry": { "type": "Point", "coordinates": [ 77.133663049415688, 28.67100572982546 ] } },
+{ "type": "Feature", "properties": { "id": 13, "Floor": "3rd", "Latitude": 28.671012308062743, "Longitude": 77.133665180863986, "room_name": "Employee sitting places" }, "geometry": { "type": "Point", "coordinates": [ 77.133667431784758, 28.671008778430021 ] } }
+]
+}

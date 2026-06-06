@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flodata Indoor Model</title>
+  <link rel="icon" type="image/png" href="/flodata-logo.png" />
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://apis.google.com/js/api.js" async defer></script>
+</head>
+
+<body>
+  <div id="onboardingSplash" aria-label="FloData Analytics loading">
+    <div class="onboarding-grid" aria-hidden="true"></div>
+    <div class="onboarding-data-visuals" aria-hidden="true">
+      <div class="onboarding-mini-stack mini-stack-left">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <div class="onboarding-mini-stack mini-stack-bottom">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <div class="onboarding-cube-3d">
+        <span class="cube-face cube-front"></span>
+        <span class="cube-face cube-top"></span>
+        <span class="cube-face cube-side"></span>
+      </div>
+      <div class="building-blueprint blueprint-left">
+        <span class="room room-a"></span>
+        <span class="room room-b"></span>
+        <span class="room room-c"></span>
+        <span class="room room-d"></span>
+        <span class="corridor"></span>
+        <span class="route-dot"></span>
+      </div>
+      <div class="building-blueprint blueprint-right">
+        <span class="room room-a"></span>
+        <span class="room room-b"></span>
+        <span class="room room-c"></span>
+        <span class="room room-d"></span>
+        <span class="corridor"></span>
+        <span class="route-dot"></span>
+      </div>
+      <div class="building-scan">
+        <span></span>
+      </div>
+      <div class="building-elevator">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <div class="office-panel office-left">
+        <div class="meeting-table"></div>
+        <span class="chair chair-a"></span>
+        <span class="chair chair-b"></span>
+        <span class="chair chair-c"></span>
+        <span class="chair chair-d"></span>
+        <span class="employee employee-a"></span>
+        <span class="employee employee-b"></span>
+        <span class="plant-pot plant-a"></span>
+        <span class="chat-bubble chat-a">Booked</span>
+        <span class="chat-bubble chat-b">Available</span>
+      </div>
+      <div class="office-panel office-right">
+        <div class="calendar-card">
+          <b>Today</b>
+          <span>10:30 Sync</span>
+          <span>14:00 Review</span>
+        </div>
+        <div class="ac-unit">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div class="projector-screen">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <span class="plant-pot plant-b"></span>
+      </div>
+      <div class="data-line">
+        <span></span>
+      </div>
+    </div>
+    <div class="onboarding-sweep" aria-hidden="true"></div>
+    <div class="onboarding-orbit" aria-hidden="true"></div>
+    <div class="onboarding-stage">
+      <div class="onboarding-brand-row">
+        <div class="onboarding-logo-card">
+          <img src="/flodata-logo.png" alt="FloData Analytics" />
+        </div>
+        <div class="onboarding-copy">
+          <span class="onboarding-kicker">Welcome to</span>
+          <h1>3D Indoor Workspace</h1>
+          <p>Preparing your live building intelligence workspace</p>
+        </div>
+      </div>
+
+      <div class="building-demo-shell" aria-hidden="true">
+        <div class="building-demo-viewport">
+          <div class="cesium-orbit-map">
+            <span class="map-ring ring-a"></span>
+            <span class="map-ring ring-b"></span>
+            <span class="map-pin"></span>
+          </div>
+          <div class="building-camera">
+            <div class="building-glow"></div>
+            <div class="exploded-building">
+              <div class="floor-slab floor-4" data-floor="Floor 4">
+                <span class="floor-label">Floor 4</span>
+                <span class="desk desk-a"><i></i></span>
+                <span class="desk desk-b"><i></i></span>
+                <span class="employee-dot emp-a"></span>
+                <span class="chair-mini chair-mini-a"></span>
+                <span class="asset-link link-a"></span>
+              </div>
+              <div class="floor-slab floor-3" data-floor="Floor 3">
+                <div class="slab-walls">
+                  <span class="slab-wall wall-front"></span>
+                  <span class="slab-wall wall-back"></span>
+                  <span class="slab-wall wall-left"></span>
+                  <span class="slab-wall wall-right"></span>
+                </div>
+                <div class="slab-glass-surface"></div>
+                <span class="floor-label">Floor 3</span>
+                <span class="floor-plan-detail floor-zone zone-focus"></span>
+                <span class="floor-plan-detail floor-zone zone-meeting-left"></span>
+                <span class="floor-plan-detail floor-zone zone-meeting-right"></span>
+                <span class="floor-plan-detail floor-partition partition-a"></span>
+                <span class="floor-plan-detail floor-partition partition-b"></span>
+                <span class="floor-plan-detail floor-partition partition-c"></span>
+                <span class="floor-plan-detail floor-corridor"></span>
+                <span class="desk desk-a"><i class="laptop-left"></i><i class="laptop-right"></i></span>
+                <span class="desk desk-b"><i class="laptop-left"></i><i class="laptop-right"></i></span>
+                <span class="desk desk-c"><i class="laptop-left"></i><i class="laptop-right"></i></span>
+                <span class="desk desk-d"><i class="laptop-left"></i><i class="laptop-right"></i></span>
+                <span class="desk desk-e"><i class="laptop-left"></i><i class="laptop-right"></i></span>
+                <span class="desk desk-f"><i class="laptop-left"></i><i class="laptop-right"></i></span>
+                <span class="desk desk-g"><i class="laptop-left"></i><i class="laptop-right"></i></span>
+                <span class="meeting-table-3d"></span>
+                <span class="meeting-table-3d meeting-table-small"></span>
+                <span class="meeting-table-3d meeting-table-mini"></span>
+                <span class="chair-mini chair-a-left"></span>
+                <span class="chair-mini chair-a-right"></span>
+                <span class="chair-mini chair-b-left"></span>
+                <span class="chair-mini chair-b-right"></span>
+                <span class="chair-mini chair-c-left"></span>
+                <span class="chair-mini chair-c-right"></span>
+                <span class="chair-mini chair-d-left"></span>
+                <span class="chair-mini chair-d-right"></span>
+                <span class="chair-mini chair-e-left"></span>
+                <span class="chair-mini chair-e-right"></span>
+                <span class="chair-mini chair-f-left"></span>
+                <span class="chair-mini chair-f-right"></span>
+                <span class="chair-mini chair-g-left"></span>
+                <span class="chair-mini chair-g-right"></span>
+                <span class="employee-dot emp-a-left"></span>
+                <span class="employee-dot emp-a-right"></span>
+                <span class="employee-dot emp-b-left"></span>
+                <span class="employee-dot emp-b-right"></span>
+                <span class="employee-dot emp-c-left"></span>
+                <span class="employee-dot emp-c-right"></span>
+                <span class="employee-dot emp-d-left"></span>
+                <span class="employee-dot emp-d-right"></span>
+                <span class="employee-dot emp-e-left"></span>
+                <span class="employee-dot emp-e-right"></span>
+                <span class="employee-dot emp-f-left"></span>
+                <span class="employee-dot emp-f-right"></span>
+                <span class="employee-dot emp-g-left"></span>
+                <span class="employee-dot emp-g-right"></span>
+                <span class="asset-link link-b"></span>
+              </div>
+              <div class="floor-slab floor-2" data-floor="Floor 2">
+                <span class="floor-label">Floor 2</span>
+                <span class="desk desk-a"><i></i></span>
+                <span class="desk desk-c"><i></i></span>
+                <span class="employee-dot emp-c"></span>
+                <span class="chair-mini chair-mini-c"></span>
+                <span class="asset-link link-c"></span>
+              </div>
+              <div class="floor-slab floor-1" data-floor="Floor 1">
+                <span class="floor-label">Floor 1</span>
+                <span class="ground-sign">CrossFit <b>167</b></span>
+                <span class="desk desk-b"><i></i></span>
+                <span class="employee-dot emp-d"></span>
+                <span class="chair-mini chair-mini-b"></span>
+                <span class="asset-link link-d"></span>
+              </div>
+              <span class="building-wall wall-left"></span>
+              <span class="building-wall wall-right"></span>
+              <span class="building-wall wall-top"></span>
+              <span class="building-wall wall-bottom"></span>
+              <span class="building-roof"></span>
+              <span class="building-pillar pillar-a"></span>
+              <span class="building-pillar pillar-b"></span>
+              <span class="building-pillar pillar-c"></span>
+              <span class="building-pillar pillar-d"></span>
+              <span class="building-scan-line"></span>
+              <span class="onboarding-nav-route"></span>
+              <span class="onboarding-nav-dot"></span>
+            </div>
+          </div>
+          <div class="workspace-complete">Building onboarding completed successfully.</div>
+        </div>
+
+        <aside class="onboarding-progress-panel">
+          <span class="progress-title">Live onboarding</span>
+          <ol>
+            <li><span></span><b>&#10004; Model</b> 3D building model initialized</li>
+            <li><span></span><b>&#10004; Hierarchy</b> Floor hierarchy mapped</li>
+            <li><span></span><b>&#10004; Indexing</b> Rooms &amp; workspaces indexed</li>
+            <li><span></span><b>&#10004; Sync</b> Assets &amp; employee locations synchronized</li>
+            <li><span></span><b>&#9203; Ready</b> Smart workspace ready</li>
+          </ol>
+          <div class="workflow-meter"><span></span></div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+  <div id="cesiumContainer"></div>
+  <div id="navigationHud" class="navigation-hud" hidden>
+    <div id="navigationHudIconLeft" class="navigation-hud-icon">&uarr;</div>
+    <div class="navigation-hud-main">
+      <div id="navigationHudInstruction" class="navigation-hud-instruction">Go forward</div>
+      <div id="navigationHudContext" class="navigation-hud-context">Navigation ready</div>
+    </div>
+    <div id="navigationHudIconRight" class="navigation-hud-icon">&uarr;</div>
+    <div id="navigationHudDistance" class="navigation-hud-distance">0 m</div>
+  </div>
+
+  <section id="mapDirectionsPanel" class="map-directions-panel" aria-label="Map Route" hidden>
+    <div class="map-directions-header">
+      <strong>Map Route</strong>
+      <button id="mapDirectionsCloseBtn" type="button" aria-label="Close map route">x</button>
+    </div>
+
+    <label for="mapOriginInput">From</label>
+    <div class="map-autocomplete-wrapper">
+      <input id="mapOriginInput" type="text" placeholder="Room or address" autocomplete="off" />
+      <button type="button" class="map-autocomplete-arrow" tabindex="-1" aria-label="Show options" data-target="mapOriginInput"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="3" width="14" height="2" rx="1" fill="currentColor"/><rect x="1" y="7" width="14" height="2" rx="1" fill="currentColor"/><rect x="1" y="11" width="9" height="2" rx="1" fill="currentColor"/></svg></button>
+      <button id="useCurrentLocationBtn" type="button" class="map-locate-icon-btn" title="Use current location" aria-label="Use current location">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <ul id="mapOriginDropdown" class="map-autocomplete-dropdown" role="listbox" hidden></ul>
+    </div>
+
+    <div class="map-swap-row">
+      <button id="swapRouteBtn" type="button" class="map-swap-btn" aria-label="Swap From and To">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M7 4v13M7 17l-3-3m3 3 3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M17 20V7m0-3 3 3m-3-3-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <label for="mapDestinationInput">To</label>
+    <div class="map-autocomplete-wrapper">
+      <input id="mapDestinationInput" type="text" placeholder="Room or address" autocomplete="off" />
+      <button type="button" class="map-autocomplete-arrow" tabindex="-1" aria-label="Show options" data-target="mapDestinationInput"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1" y="3" width="14" height="2" rx="1" fill="currentColor"/><rect x="1" y="7" width="14" height="2" rx="1" fill="currentColor"/><rect x="1" y="11" width="9" height="2" rx="1" fill="currentColor"/></svg></button>
+      <ul id="mapDestinationDropdown" class="map-autocomplete-dropdown" role="listbox" hidden></ul>
+    </div>
+
+    <!-- Hidden selects kept for indoor nav JS compatibility -->
+    <select id="fromRoom" hidden></select>
+    <select id="toRoom" hidden></select>
+    <!-- Hidden display elements for nav JS compatibility -->
+    <span id="fromNameDisplay" hidden></span>
+    <span id="toNameDisplay" hidden></span>
+
+    <div class="map-action-row">
+      <button id="showGoogleRouteBtn" class="map-route-btn map-route-btn--outline" type="button">Show Route</button>
+      <button id="startNavBtn" class="map-route-btn" type="button">Navigate</button>
+    </div>
+    <button id="exitNavBtn" class="map-route-btn map-route-btn--danger" type="button" hidden>Exit Navigation</button>
+    <button id="worldRouteIndoorNavBtn" class="map-route-btn" type="button" hidden style="background:#0055cc; margin-top:4px;">&#8594; Start Indoor Navigation</button>
+
+    <div id="mapRouteSummary" class="map-route-summary" hidden></div>
+    <div id="navSummary" class="nav-summary" hidden></div>
+    <button id="toggleDirectionsBtn" class="map-toggle-directions-btn" type="button" hidden>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 6h18M3 12h18M3 18h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      View Directions
+      <svg class="toggle-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <div id="navSteps" class="nav-steps" hidden></div>
+  </section>
+  
+  <button id="hamburgerMenu" class="hamburger-btn" aria-label="Toggle Controls" title="Toggle Controls">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+
+  <div id="userProfile" class="user-profile-header">
+    <div id="userAvatar" class="user-avatar google-avatar" title="Sign in with Google">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+    </div>
+    <div class="user-info">
+      <div id="userNameDisplay" class="user-name">Guest</div>
+      <div id="userEmailDisplay" class="user-email"></div>
+    </div>
+    <div class="user-dropdown-arrow">▼</div>
+    <div id="userMenu" class="user-menu" hidden>
+      <button id="logoutBtn" type="button">Logout</button>
+    </div>
+  </div>
+
+  <section id="attendancePanel" class="attendance-panel common-panel" aria-label="Attendance" hidden>
+    <div class="attendance-header">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2"/>
+        <path d="M5 20c0-4 3.1-7 7-7s7 3 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <h3>Attendance</h3>
+    </div>
+    <p id="attendanceStatus" class="attendance-status-msg" data-active="false" data-inside="false">Sign in with Google to start attendance.</p>
+    <div class="attendance-info">
+      <div class="attendance-info-row">
+        <span>Status</span>
+        <strong id="attendanceCurrentStatus" class="attendance-badge">Inactive</strong>
+      </div>
+      <div class="attendance-info-row">
+        <span>Check-In</span>
+        <strong id="attendanceLastSignIn">--</strong>
+      </div>
+      <div class="attendance-info-row">
+        <span>GPS Accuracy</span>
+        <strong id="attendanceAccuracy">--</strong>
+      </div>
+      <div class="attendance-info-row">
+        <span>Distance</span>
+        <strong id="attendanceDistance">--</strong>
+      </div>
+      <div class="attendance-info-row">
+        <span>Latitude</span>
+        <strong id="attendanceLatitude">--</strong>
+      </div>
+      <div class="attendance-info-row">
+        <span>Longitude</span>
+        <strong id="attendanceLongitude">--</strong>
+      </div>
+      <div class="attendance-info-row">
+        <span>Elevation</span>
+        <strong id="attendanceAltitude">--</strong>
+      </div>
+      <div class="attendance-info-row">
+        <span>Elevation Accuracy</span>
+        <strong id="attendanceAltitudeAccuracy">--</strong>
+      </div>
+      <div class="attendance-info-row">
+        <span>Elevation Change</span>
+        <strong id="attendanceElevationDelta">--</strong>
+      </div>
+      <div class="attendance-info-row">
+        <span>Speed</span>
+        <strong id="attendanceSpeed">--</strong>
+      </div>
+      <div class="attendance-info-row">
+        <span>Samples</span>
+        <strong id="attendanceProgress">--</strong>
+      </div>
+      <div class="attendance-info-row">
+        <span>Last GPS</span>
+        <strong id="attendanceLastGpsUpdate">--</strong>
+      </div>
+    </div>
+    <button id="attendanceStartBtn" class="btn attendance-action-btn" type="button" disabled>Start Attendance</button>
+  </section>
+
+  <section id="cameraPanel" class="panel common-panel" aria-label="Camera controls"
+    style="display: none; top: 360px; right: 10px; left: auto;">
+    <div class="camera-panel-header">
+      <h3>Camera Controls</h3>
+      <button id="cameraPanelToggle" class="camera-panel-toggle" type="button" aria-expanded="true"
+        aria-label="Minimize camera controls" title="Minimize camera controls">-</button>
+    </div>
+    <div class="camera-card-scroll-shell">
+      <div id="cameraPanelBody" class="camera-card-scroll">
+        <div class="camera-coverage-actions" aria-label="Camera coverage controls">
+          <button class="btn" type="button" data-cctv-viewshed="coverage">Show CCTV Coverage</button>
+          <button class="btn" type="button" data-cctv-viewshed="blind">Blind Spots</button>
+          <button class="btn" type="button" data-cctv-viewshed="both">Coverage + Blind Spots</button>
+          <button class="btn danger" type="button" data-cctv-viewshed="clear">Clear Coverage</button>
+        </div>
+        <div class="coverage-legend">
+          <strong>Coverage Legend</strong>
+          <div><span class="legend-swatch covered"></span>Covered by one camera</div>
+          <div><span class="legend-swatch blind"></span>Blind spot / not covered</div>
+          <div><span class="legend-swatch overlap"></span>Overlap coverage</div>
+        </div>
+        <div id="cctvViewshedStats" class="camera-coverage-stats"></div>
+        <div id="cameraButtons"></div>
+      </div>
+      <input id="cameraListSlider" class="camera-list-slider" type="range" min="0" max="0" value="0" step="1" aria-label="Camera controls position" />
+    </div>
+  </section>
+
+  <section id="cameraExitCard" class="common-panel" aria-label="Exit camera view" hidden>
+    <button id="cameraViewExitBtn" type="button" disabled>Exit Camera View</button>
+  </section>
+
+
+  <section id="bookingPanel" class="common-panel" aria-live="polite">
+    <div class="panel-header">
+      <h3 id="roomTitle" style="margin:0;"></h3>
+      <button id="panelCloseBtn" type="button" title="Close">✕</button>
+    </div>
+    <p style="margin:0 0 6px;"><b>Status:</b> <span id="roomStatus">Unknown</span></p>
+    <div id="roomBookingsList"></div>
+    <hr class="panel-divider" />
+    <span class="booking-section-label">New booking</span>
+    <div class="booking-time-row">
+      <div class="booking-time-col">
+        <label for="bookStart">Start</label>
+        <input type="time" id="bookStart" />
+      </div>
+      <div class="booking-time-col">
+        <label for="bookEnd">End</label>
+        <input type="time" id="bookEnd" />
+      </div>
+    </div>
+    <button id="bookBtn" class="btn success" type="button">Book Room</button>
+  </section>
+
+  <section id="roomDetailsCard" class="common-panel">
+    <h3 id="cardRoomName"></h3>
+    <div id="cardContent"></div>
+  </section>
+
+  <div id="leftSidebar" class="left-sidebar">
+    <section class="panel common-panel" aria-label="Floor controls">
+      <h3>Floor Controls</h3>
+      <div id="floorButtons">
+        <button class="btn" type="button" data-floor="1">Show Ground Floor</button>
+        <button class="btn" type="button" data-floor="2">Show 1st Floor</button>
+        <button class="btn" type="button" data-floor="3">Show 2nd Floor</button>
+        <button class="btn" type="button" data-floor="4">Show 3rd Floor</button>
+      </div>
+      <button class="btn" type="button" data-floor="0">Show All Floors</button>
+    </section>
+  
+  </div>
+
+  <div id="menuBackdrop" class="menu-backdrop"></div>
+
+  <section id="chairPopup" class="common-panel">
+    <h3 id="chairUser">User</h3>
+    <p><b>ID:</b> <span id="chairId"></span></p>
+    <p><b>Floor:</b> <span id="chairFloor"></span></p>
+    <p><b>Status:</b> <span id="chairStatus"></span></p>
+    <button id="chairCloseBtn" type="button">Close</button>
+  </section>
+
+  <section id="cctvPanel">
+    <h3>&#128247; CCTV Camera</h3>
+    <div class="cctv-stats">
+      <span>H: <b id="cctvHeadingDisplay">0°</b></span>
+      <span>P: <b id="cctvPitchDisplay">0°</b></span>
+    </div>
+    <div class="cctv-dpad">
+      <div class="dpad-row">
+        <button id="cctvUp" class="dpad-btn" type="button" title="Pitch up">&#9650;</button>
+      </div>
+      <div class="dpad-row dpad-middle">
+        <button id="cctvLeft" class="dpad-btn" type="button" title="Turn left">&#9664;</button>
+        <button id="cctvDefault" class="dpad-center" type="button" title="Default view"></button>
+        <button id="cctvRight" class="dpad-btn" type="button" title="Turn right">&#9654;</button>
+      </div>
+      <div class="dpad-row">
+        <button id="cctvDown" class="dpad-btn" type="button" title="Pitch down">&#9660;</button>
+      </div>
+    </div>
+
+    <button id="cctvExit" type="button" class="cctv-exit">&#x2715; Exit Camera</button>
+  </section>
+
+  <div id="floorLoadingOverlay">
+    <div class="floor-loading-card">
+      <div class="floor-loading-logo-wrap">
+        <img src="/flodata-logo.png" class="floor-loading-logo" alt="FloData Analytics" />
+      </div>
+      <div class="floor-loading-icons" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <p class="floor-loading-text">Preparing Workspace…</p>
+    </div>
+  </div>
+
+  <div id="tooltip" class="tooltip"></div>
+  <div id="toastContainer" aria-live="assertive"></div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
+</html>

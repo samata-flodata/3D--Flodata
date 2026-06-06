@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+cesium_demo/dist/
+.cesium_demo/
+
+# Local environment and secrets
+.env
+*.env
+server/service-account.json
+
+# Logs and archives
+*.log
+*.err.log
+*.zip

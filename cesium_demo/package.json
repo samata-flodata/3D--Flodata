@@ -1,0 +1,21 @@
+{
+  "name": "cesium-demo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build && node scripts/prepare-render-dist.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "cesium": "latest"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "^4.3.0",
+    "typescript": "latest",
+    "vite": "latest",
+    "vite-plugin-cesium": "^1.2.23",
+    "vite-plugin-static-copy": "latest"
+  }
+}
