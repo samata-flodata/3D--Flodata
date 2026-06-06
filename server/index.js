@@ -13,6 +13,7 @@ const SHEET_NAME = process.env.SHEET_NAME || "Attendance";
 const DEFAULT_CORS_ORIGINS = [
   "http://localhost:5173",
   "http://localhost:5500",
+  "https://attendance-server-1f81.onrender.com",
   "https://threed-flodata.onrender.com",
   "https://threed-model11.onrender.com",
 ];
