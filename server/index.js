@@ -1,5 +1,6 @@
 require("dotenv").config();
 
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const { google } = require("googleapis");
@@ -12,6 +13,7 @@ const SHEET_NAME = process.env.SHEET_NAME || "Attendance";
 const DEFAULT_CORS_ORIGINS = [
   "http://localhost:5173",
   "http://localhost:5500",
+  "https://threed-flodata.onrender.com",
   "https://threed-model11.onrender.com",
 ];
 const CORS_ORIGIN = process.env.CORS_ORIGIN || DEFAULT_CORS_ORIGINS.join(",");
@@ -68,6 +70,9 @@ app.use(cors({
   },
 }));
 app.use(express.json({ limit: "64kb" }));
+
+const frontendDistPath = path.resolve(__dirname, "..", ".cesium_demo", "dist");
+app.use(express.static(frontendDistPath));
 
 app.use((req, res, next) => {
   if (req.path.startsWith("/api/attendance")) {
@@ -329,13 +334,6 @@ function asyncRoute(handler) {
   };
 }
 
-app.get("/", (req, res) => {
-  res.json({
-    ok: true,
-    service: "attendance-backend",
-  });
-});
-
 app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
@@ -549,6 +547,10 @@ app.use((err, req, res, next) => {
     error: status >= 500 ? "Internal server error" : message,
     details: status >= 500 ? message : undefined,
   });
+});
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(frontendDistPath, "index.html"));
 });
 
 app.listen(PORT, () => {
