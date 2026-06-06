@@ -39,7 +39,7 @@ type AttendanceSample = {
   altitude: number | null;
   altitudeAccuracy: number | null;
   elevationDelta: number | null;
-  elevationSource: "barometer" | "gps" | "none";
+  elevationSource: "barometer" | "gps" | "motion" | "none";
   timestamp: number;
   distanceFromOffice: number;
   speedKmh: number | null;
@@ -57,6 +57,8 @@ const ATTENDANCE_TIME_ZONE = "Asia/Kolkata";
 const OFFICE_START_MINUTES_IST = 9 * 60 + 30;
 const OFFICE_END_MINUTES_IST = 19 * 60 + 30;
 const ELEVATION_DECIMAL_PLACES = 3;
+const MOTION_NOISE_FLOOR = 0.035;
+const MOTION_VELOCITY_DAMPING = 0.82;
 
 let watchId: number | null = null;
 let activeUser: AttendanceUser | null = null;
@@ -72,6 +74,12 @@ let pressureSensor: PressureSensor | null = null;
 let baselinePressureHpa: number | null = null;
 let currentBarometerAltitudeMeters: number | null = null;
 let lastBarometerAltitudeMeters: number | null = null;
+let motionAltitudeMeters = 0;
+let lastMotionAltitudeMeters: number | null = null;
+let motionVelocityMetersPerSecond = 0;
+let motionBaselineAcceleration: number | null = null;
+let lastMotionTimestampMs: number | null = null;
+let motionSensorActive = false;
 let stateSyncInFlight = false;
 
 function readAttendanceState(): StoredAttendanceState {
@@ -227,7 +235,76 @@ function handlePressureReading(): void {
   currentBarometerAltitudeMeters = pressureToAltitudeDeltaMeters(pressure, baselinePressureHpa);
 }
 
+function resetMotionElevation(): void {
+  motionAltitudeMeters = 0;
+  lastMotionAltitudeMeters = null;
+  motionVelocityMetersPerSecond = 0;
+  motionBaselineAcceleration = null;
+  lastMotionTimestampMs = null;
+}
+
+function requestMotionPermissionIfNeeded(): void {
+  const motionEvent = DeviceMotionEvent as typeof DeviceMotionEvent & {
+    requestPermission?: () => Promise<PermissionState>;
+  };
+
+  if (typeof motionEvent.requestPermission !== "function") return;
+
+  motionEvent.requestPermission()
+    .then((state) => {
+      if (state !== "granted") {
+        console.warn("[Attendance] device motion permission not granted:", state);
+      }
+    })
+    .catch((error) => {
+      console.warn("[Attendance] device motion permission failed:", error);
+    });
+}
+
+function handleDeviceMotion(event: DeviceMotionEvent): void {
+  const acceleration = event.accelerationIncludingGravity ?? event.acceleration;
+  const zAcceleration = acceleration?.z;
+  if (typeof zAcceleration !== "number" || !Number.isFinite(zAcceleration)) return;
+
+  const timestamp = performance.now();
+  if (motionBaselineAcceleration === null) {
+    motionBaselineAcceleration = zAcceleration;
+    lastMotionTimestampMs = timestamp;
+    return;
+  }
+  if (lastMotionTimestampMs === null) {
+    lastMotionTimestampMs = timestamp;
+    return;
+  }
+
+  const elapsedSeconds = Math.min(0.2, Math.max(0.001, (timestamp - lastMotionTimestampMs) / 1000));
+  lastMotionTimestampMs = timestamp;
+
+  motionBaselineAcceleration = (motionBaselineAcceleration * 0.995) + (zAcceleration * 0.005);
+  let verticalAcceleration = zAcceleration - motionBaselineAcceleration;
+  if (Math.abs(verticalAcceleration) < MOTION_NOISE_FLOOR) {
+    verticalAcceleration = 0;
+  }
+
+  motionVelocityMetersPerSecond = (motionVelocityMetersPerSecond + verticalAcceleration * elapsedSeconds) * MOTION_VELOCITY_DAMPING;
+  if (Math.abs(motionVelocityMetersPerSecond) < 0.002) {
+    motionVelocityMetersPerSecond = 0;
+  }
+  motionAltitudeMeters += motionVelocityMetersPerSecond * elapsedSeconds;
+
+  if (Math.abs(motionAltitudeMeters) < 0.001 && motionVelocityMetersPerSecond === 0) {
+    motionAltitudeMeters = 0;
+  }
+}
+
 function startElevationSensor(): void {
+  if (!motionSensorActive && "DeviceMotionEvent" in window) {
+    requestMotionPermissionIfNeeded();
+    window.addEventListener("devicemotion", handleDeviceMotion);
+    motionSensorActive = true;
+    console.log("[Attendance] motion elevation sensor started");
+  }
+
   if (pressureSensor || !window.PressureSensor) return;
 
   try {
@@ -252,6 +329,11 @@ function stopElevationSensor(): void {
   baselinePressureHpa = null;
   currentBarometerAltitudeMeters = null;
   lastBarometerAltitudeMeters = null;
+  if (motionSensorActive) {
+    window.removeEventListener("devicemotion", handleDeviceMotion);
+    motionSensorActive = false;
+  }
+  resetMotionElevation();
 }
 
 function buildSample(position: GeolocationPosition): AttendanceSample {
@@ -262,14 +344,19 @@ function buildSample(position: GeolocationPosition): AttendanceSample {
   const gpsAltitudeAccuracy = position.coords.altitudeAccuracy;
   const barometerAltitude = currentBarometerAltitudeMeters;
   const hasBarometerAltitude = barometerAltitude !== null;
-  const altitude = hasBarometerAltitude ? barometerAltitude : gpsAltitude;
-  const altitudeAccuracy = hasBarometerAltitude ? null : gpsAltitudeAccuracy;
-  const elevationSource: AttendanceSample["elevationSource"] = hasBarometerAltitude ? "barometer" : typeof gpsAltitude === "number" ? "gps" : "none";
+  const motionDelta = lastMotionAltitudeMeters === null ? null : motionAltitudeMeters - lastMotionAltitudeMeters;
+  const hasMotionAltitude = motionSensorActive && motionBaselineAcceleration !== null && motionDelta !== null && Math.abs(motionDelta) >= 0.001;
+  const altitude = hasBarometerAltitude ? barometerAltitude : hasMotionAltitude ? motionAltitudeMeters : gpsAltitude;
+  const altitudeAccuracy = hasBarometerAltitude || hasMotionAltitude ? null : gpsAltitudeAccuracy;
+  const elevationSource: AttendanceSample["elevationSource"] = hasBarometerAltitude
+    ? "barometer"
+    : hasMotionAltitude ? "motion" : typeof gpsAltitude === "number" ? "gps" : "none";
   const distanceFromOffice = distanceMeters({ lat, lon: lng }, ATTENDANCE_BUILDING_CENTER);
   let speedKmh: number | null = null;
   const elevationDelta = hasBarometerAltitude
     ? lastBarometerAltitudeMeters === null ? null : barometerAltitude - lastBarometerAltitudeMeters
-    : typeof gpsAltitude === "number" && lastAltitudeMeters !== null ? gpsAltitude - lastAltitudeMeters : null;
+    : hasMotionAltitude ? motionDelta
+      : typeof gpsAltitude === "number" && lastAltitudeMeters !== null ? gpsAltitude - lastAltitudeMeters : null;
 
   if (previousSample) {
     // Speed and jump checks catch fake-location jumps and impossible movement.
@@ -288,6 +375,8 @@ function buildSample(position: GeolocationPosition): AttendanceSample {
   if (hasBarometerAltitude) {
     lastBarometerAltitudeMeters = barometerAltitude;
   }
+
+  lastMotionAltitudeMeters = motionAltitudeMeters;
 
   if (typeof gpsAltitude === "number") {
     lastAltitudeMeters = gpsAltitude;
