@@ -39,6 +39,7 @@ type AttendanceSample = {
   altitude: number | null;
   altitudeAccuracy: number | null;
   elevationDelta: number | null;
+  elevationSource: "barometer" | "gps" | "none";
   timestamp: number;
   distanceFromOffice: number;
   speedKmh: number | null;
@@ -55,6 +56,7 @@ const AUTO_SIGN_OUT_EVENT = "attendance:auto-signout";
 const ATTENDANCE_TIME_ZONE = "Asia/Kolkata";
 const OFFICE_START_MINUTES_IST = 9 * 60 + 30;
 const OFFICE_END_MINUTES_IST = 19 * 60 + 30;
+const ELEVATION_DECIMAL_PLACES = 3;
 
 let watchId: number | null = null;
 let activeUser: AttendanceUser | null = null;
@@ -66,6 +68,10 @@ let officeEndTimer: ReturnType<typeof setTimeout> | null = null;
 let verificationSamples: AttendanceSample[] = [];
 let previousSample: AttendanceSample | null = null;
 let lastAltitudeMeters: number | null = null;
+let pressureSensor: PressureSensor | null = null;
+let baselinePressureHpa: number | null = null;
+let currentBarometerAltitudeMeters: number | null = null;
+let lastBarometerAltitudeMeters: number | null = null;
 let stateSyncInFlight = false;
 
 function readAttendanceState(): StoredAttendanceState {
@@ -128,13 +134,13 @@ function setMetrics(values: {
   if (typeof values.latitude === "number") setText("attendanceLatitude", values.latitude.toFixed(7));
   if (typeof values.longitude === "number") setText("attendanceLongitude", values.longitude.toFixed(7));
   if (values.altitude === null) setText("attendanceAltitude", "Not available");
-  if (typeof values.altitude === "number") setText("attendanceAltitude", `${values.altitude.toFixed(2)}m`);
+  if (typeof values.altitude === "number") setText("attendanceAltitude", `${values.altitude.toFixed(ELEVATION_DECIMAL_PLACES)}m`);
   if (values.altitudeAccuracy === null) setText("attendanceAltitudeAccuracy", "Not available");
-  if (typeof values.altitudeAccuracy === "number") setText("attendanceAltitudeAccuracy", `±${values.altitudeAccuracy.toFixed(1)}m`);
+  if (typeof values.altitudeAccuracy === "number") setText("attendanceAltitudeAccuracy", `+/-${values.altitudeAccuracy.toFixed(ELEVATION_DECIMAL_PLACES)}m`);
   if (values.elevationDelta === null) setText("attendanceElevationDelta", "--");
   if (typeof values.elevationDelta === "number") {
     const sign = values.elevationDelta > 0 ? "+" : "";
-    setText("attendanceElevationDelta", `${sign}${values.elevationDelta.toFixed(2)}m`);
+    setText("attendanceElevationDelta", `${sign}${values.elevationDelta.toFixed(ELEVATION_DECIMAL_PLACES)}m`);
   }
   if (values.speedKmh === null) setText("attendanceSpeed", "--");
   if (typeof values.speedKmh === "number") setText("attendanceSpeed", `${values.speedKmh.toFixed(1)} km/h`);
@@ -206,17 +212,64 @@ function resetVerification(reason?: AttendanceFlag): void {
   if (reason) setMetrics({ progress: `0/${ATTENDANCE_CONFIG.REQUIRED_SAMPLES} samples`, status: reason });
 }
 
+function pressureToAltitudeDeltaMeters(pressureHpa: number, referencePressureHpa: number): number {
+  return 44330 * (1 - Math.pow(pressureHpa / referencePressureHpa, 1 / 5.255));
+}
+
+function handlePressureReading(): void {
+  if (!pressureSensor) return;
+  const pressure = pressureSensor.pressure;
+  if (!Number.isFinite(pressure) || pressure <= 0) return;
+
+  if (baselinePressureHpa === null) {
+    baselinePressureHpa = pressure;
+  }
+  currentBarometerAltitudeMeters = pressureToAltitudeDeltaMeters(pressure, baselinePressureHpa);
+}
+
+function startElevationSensor(): void {
+  if (pressureSensor || !window.PressureSensor) return;
+
+  try {
+    pressureSensor = new window.PressureSensor({ frequency: 5 });
+    pressureSensor.addEventListener("reading", handlePressureReading);
+    pressureSensor.addEventListener("error", (event) => {
+      console.warn("[Attendance] barometer unavailable:", event);
+    });
+    pressureSensor.start();
+    console.log("[Attendance] barometer elevation sensor started");
+  } catch (error) {
+    pressureSensor = null;
+    console.warn("[Attendance] could not start barometer elevation sensor:", error);
+  }
+}
+
+function stopElevationSensor(): void {
+  if (pressureSensor) {
+    pressureSensor.stop();
+    pressureSensor = null;
+  }
+  baselinePressureHpa = null;
+  currentBarometerAltitudeMeters = null;
+  lastBarometerAltitudeMeters = null;
+}
+
 function buildSample(position: GeolocationPosition): AttendanceSample {
   const timestamp = position.timestamp || Date.now();
   const lat = position.coords.latitude;
   const lng = position.coords.longitude;
-  const altitude = position.coords.altitude;
-  const altitudeAccuracy = position.coords.altitudeAccuracy;
+  const gpsAltitude = position.coords.altitude;
+  const gpsAltitudeAccuracy = position.coords.altitudeAccuracy;
+  const barometerAltitude = currentBarometerAltitudeMeters;
+  const hasBarometerAltitude = barometerAltitude !== null;
+  const altitude = hasBarometerAltitude ? barometerAltitude : gpsAltitude;
+  const altitudeAccuracy = hasBarometerAltitude ? null : gpsAltitudeAccuracy;
+  const elevationSource: AttendanceSample["elevationSource"] = hasBarometerAltitude ? "barometer" : typeof gpsAltitude === "number" ? "gps" : "none";
   const distanceFromOffice = distanceMeters({ lat, lon: lng }, ATTENDANCE_BUILDING_CENTER);
   let speedKmh: number | null = null;
-  const elevationDelta = typeof altitude === "number" && lastAltitudeMeters !== null
-    ? altitude - lastAltitudeMeters
-    : null;
+  const elevationDelta = hasBarometerAltitude
+    ? lastBarometerAltitudeMeters === null ? null : barometerAltitude - lastBarometerAltitudeMeters
+    : typeof gpsAltitude === "number" && lastAltitudeMeters !== null ? gpsAltitude - lastAltitudeMeters : null;
 
   if (previousSample) {
     // Speed and jump checks catch fake-location jumps and impossible movement.
@@ -232,8 +285,12 @@ function buildSample(position: GeolocationPosition): AttendanceSample {
     }
   }
 
-  if (typeof altitude === "number") {
-    lastAltitudeMeters = altitude;
+  if (hasBarometerAltitude) {
+    lastBarometerAltitudeMeters = barometerAltitude;
+  }
+
+  if (typeof gpsAltitude === "number") {
+    lastAltitudeMeters = gpsAltitude;
   }
 
   const sample = {
@@ -243,6 +300,7 @@ function buildSample(position: GeolocationPosition): AttendanceSample {
     altitude,
     altitudeAccuracy,
     elevationDelta,
+    elevationSource,
     timestamp,
     distanceFromOffice,
     speedKmh
@@ -387,8 +445,8 @@ async function saveSignIn(position: GeolocationPosition, verifiedSamples = verif
       lat: position.coords.latitude,
       lng: position.coords.longitude,
       accuracy: position.coords.accuracy,
-      altitude: position.coords.altitude,
-      altitudeAccuracy: position.coords.altitudeAccuracy,
+      altitude: previousSample?.altitude ?? position.coords.altitude,
+      altitudeAccuracy: previousSample?.altitudeAccuracy ?? position.coords.altitudeAccuracy,
       status: "VERIFIED",
       samples,
     });
@@ -415,8 +473,8 @@ async function saveSignOut(position: GeolocationPosition, status: AttendanceFlag
       lat: position.coords.latitude,
       lng: position.coords.longitude,
       accuracy: position.coords.accuracy,
-      altitude: position.coords.altitude,
-      altitudeAccuracy: position.coords.altitudeAccuracy,
+      altitude: previousSample?.altitude ?? position.coords.altitude,
+      altitudeAccuracy: previousSample?.altitudeAccuracy ?? position.coords.altitudeAccuracy,
       status,
     });
     clearAttendanceState();
@@ -468,9 +526,10 @@ async function handlePosition(position: GeolocationPosition): Promise<void> {
 
   console.log("[Attendance] GPS accuracy:", Math.round(sample.accuracy), "m");
   console.log("[Attendance] GPS lat/lng:", sample.lat, sample.lng);
-  console.log("[Attendance] GPS altitude:", sample.altitude === null ? "n/a" : `${sample.altitude.toFixed(2)}m`);
-  console.log("[Attendance] GPS altitude accuracy:", sample.altitudeAccuracy === null ? "n/a" : `±${sample.altitudeAccuracy.toFixed(1)}m`);
-  console.log("[Attendance] elevation delta:", sample.elevationDelta === null ? "n/a" : `${sample.elevationDelta.toFixed(2)}m`);
+  console.log("[Attendance] elevation source:", sample.elevationSource);
+  console.log("[Attendance] GPS altitude:", sample.altitude === null ? "n/a" : `${sample.altitude.toFixed(ELEVATION_DECIMAL_PLACES)}m`);
+  console.log("[Attendance] GPS altitude accuracy:", sample.altitudeAccuracy === null ? "n/a" : `+/-${sample.altitudeAccuracy.toFixed(ELEVATION_DECIMAL_PLACES)}m`);
+  console.log("[Attendance] elevation delta:", sample.elevationDelta === null ? "n/a" : `${sample.elevationDelta.toFixed(ELEVATION_DECIMAL_PLACES)}m`);
   console.log("[Attendance] distance from office:", Math.round(sample.distanceFromOffice), "m");
   console.log("[Attendance] speed:", sample.speedKmh === null ? "n/a" : `${Math.round(sample.speedKmh)} km/h`);
   console.log("[Attendance] sample count:", verificationSamples.length);
@@ -601,6 +660,7 @@ export function startAttendanceTracking(email: string, name = ""): void {
   }
 
   console.log("[Attendance] tracking started for", email);
+  startElevationSensor();
   if (attendanceState.signedIn) scheduleOfficeEndSignOut();
   void syncAttendanceStateWithServer(email);
   setMetrics({
@@ -623,6 +683,7 @@ export function stopAttendanceTracking(): void {
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
   }
+  stopElevationSensor();
   outsideSamples = 0;
   clearOfficeEndTimer();
   resetVerification();

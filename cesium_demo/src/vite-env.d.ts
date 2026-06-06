@@ -16,3 +16,21 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+type PressureSensorOptions = {
+  frequency?: number;
+};
+
+interface PressureSensor extends EventTarget {
+  readonly pressure: number;
+  start(): void;
+  stop(): void;
+}
+
+interface PressureSensorConstructor {
+  new(options?: PressureSensorOptions): PressureSensor;
+}
+
+interface Window {
+  PressureSensor?: PressureSensorConstructor;
+}
