@@ -59,6 +59,8 @@ const OFFICE_END_MINUTES_IST = 19 * 60 + 30;
 const ELEVATION_DECIMAL_PLACES = 3;
 const MOTION_NOISE_FLOOR = 0.035;
 const MOTION_VELOCITY_DAMPING = 0.82;
+const GPS_JUMP_REJECT_METERS = 150;
+const GPS_JUMP_REJECT_WINDOW_MS = 120000;
 
 let watchId: number | null = null;
 let activeUser: AttendanceUser | null = null;
@@ -346,8 +348,8 @@ function buildSample(position: GeolocationPosition): AttendanceSample {
   const hasBarometerAltitude = barometerAltitude !== null;
   const motionDelta = lastMotionAltitudeMeters === null ? null : motionAltitudeMeters - lastMotionAltitudeMeters;
   const hasMotionAltitude = motionSensorActive && motionBaselineAcceleration !== null && motionDelta !== null && Math.abs(motionDelta) >= 0.001;
-  const altitude = hasBarometerAltitude ? barometerAltitude : hasMotionAltitude ? motionAltitudeMeters : gpsAltitude;
-  const altitudeAccuracy = hasBarometerAltitude || hasMotionAltitude ? null : gpsAltitudeAccuracy;
+  const altitude = typeof gpsAltitude === "number" ? gpsAltitude : hasBarometerAltitude ? barometerAltitude : hasMotionAltitude ? motionAltitudeMeters : null;
+  const altitudeAccuracy = typeof gpsAltitude === "number" ? gpsAltitudeAccuracy : null;
   const elevationSource: AttendanceSample["elevationSource"] = hasBarometerAltitude
     ? "barometer"
     : hasMotionAltitude ? "motion" : typeof gpsAltitude === "number" ? "gps" : "none";
@@ -372,16 +374,6 @@ function buildSample(position: GeolocationPosition): AttendanceSample {
     }
   }
 
-  if (hasBarometerAltitude) {
-    lastBarometerAltitudeMeters = barometerAltitude;
-  }
-
-  lastMotionAltitudeMeters = motionAltitudeMeters;
-
-  if (typeof gpsAltitude === "number") {
-    lastAltitudeMeters = gpsAltitude;
-  }
-
   const sample = {
     lat,
     lng,
@@ -394,8 +386,25 @@ function buildSample(position: GeolocationPosition): AttendanceSample {
     distanceFromOffice,
     speedKmh
   };
-  previousSample = sample;
   return sample;
+}
+
+function acceptSample(sample: AttendanceSample): void {
+  if (sample.elevationSource === "barometer" && sample.altitude !== null) {
+    lastBarometerAltitudeMeters = sample.altitude;
+  }
+
+  lastMotionAltitudeMeters = motionAltitudeMeters;
+
+  if (typeof positionAltitudeFromSample(sample) === "number") {
+    lastAltitudeMeters = positionAltitudeFromSample(sample);
+  }
+
+  previousSample = sample;
+}
+
+function positionAltitudeFromSample(sample: AttendanceSample): number | null {
+  return sample.elevationSource === "gps" ? sample.altitude : lastAltitudeMeters;
 }
 
 function istDateParts(date = new Date()): { year: number; month: number; day: number; hour: number; minute: number } {
@@ -623,6 +632,45 @@ async function handlePosition(position: GeolocationPosition): Promise<void> {
   console.log("[Attendance] speed:", sample.speedKmh === null ? "n/a" : `${Math.round(sample.speedKmh)} km/h`);
   console.log("[Attendance] sample count:", verificationSamples.length);
 
+  if (!hasGoodAccuracy) {
+    resetVerification("LOW_ACCURACY");
+    setMetrics({
+      accuracy: sample.accuracy,
+      updatedAt: sample.timestamp,
+      progress: `${verificationSamples.length}/${ATTENDANCE_CONFIG.REQUIRED_SAMPLES} samples`,
+    });
+    setAttendanceStatus({
+      active: true,
+      inside: attendanceState.signedIn,
+      text: `Waiting for better GPS accuracy. Current: ${Math.round(sample.accuracy)}m`,
+    });
+    return;
+  }
+
+  const jumpFromPreviousMeters = previousSample
+    ? distanceMeters({ lat: previousSample.lat, lon: previousSample.lng }, { lat: sample.lat, lon: sample.lng })
+    : 0;
+  const elapsedFromPreviousMs = previousSample ? sample.timestamp - previousSample.timestamp : 0;
+
+  if (sample.speedKmh !== null && sample.speedKmh > ATTENDANCE_CONFIG.MAX_SPEED_KMH) {
+    resetVerification("SUSPICIOUS_SPEED");
+    setAttendanceStatus({ active: true, inside: false, text: "Suspicious GPS speed detected. Re-verifying location." });
+    return;
+  }
+
+  if (
+    previousSample &&
+    jumpFromPreviousMeters > GPS_JUMP_REJECT_METERS &&
+    elapsedFromPreviousMs <= GPS_JUMP_REJECT_WINDOW_MS
+  ) {
+    resetVerification("SUSPICIOUS_SPEED");
+    console.warn("[Attendance] rejected GPS drift:", Math.round(jumpFromPreviousMeters), "m in", elapsedFromPreviousMs, "ms");
+    setAttendanceStatus({ active: true, inside: attendanceState.signedIn, text: "GPS drift detected. Keeping last trusted location." });
+    return;
+  }
+
+  acceptSample(sample);
+
   setMetrics({
     accuracy: sample.accuracy,
     distance: sample.distanceFromOffice,
@@ -636,28 +684,6 @@ async function handlePosition(position: GeolocationPosition): Promise<void> {
     progress: `${verificationSamples.length}/${ATTENDANCE_CONFIG.REQUIRED_SAMPLES} samples`,
     status: attendanceState.signedIn ? "SIGNED_IN" : "WAITING",
   });
-
-  if (!hasGoodAccuracy) {
-    resetVerification("LOW_ACCURACY");
-    setAttendanceStatus({
-      active: true,
-      inside: attendanceState.signedIn,
-      text: `Waiting for better GPS accuracy. Current: ${Math.round(sample.accuracy)}m`,
-    });
-    return;
-  }
-
-  if (sample.speedKmh !== null && sample.speedKmh > ATTENDANCE_CONFIG.MAX_SPEED_KMH) {
-    resetVerification("SUSPICIOUS_SPEED");
-    setAttendanceStatus({ active: true, inside: false, text: "Suspicious GPS speed detected. Re-verifying location." });
-    return;
-  }
-
-  if (previousSample && distanceMeters({ lat: previousSample.lat, lon: previousSample.lng }, { lat: sample.lat, lon: sample.lng }) > 2000) {
-    resetVerification("SUSPICIOUS_SPEED");
-    setAttendanceStatus({ active: true, inside: false, text: "Suspicious GPS jump detected. Re-verifying location." });
-    return;
-  }
 
   if (!attendanceState.signedIn) {
     if (!isWithinOfficeHours()) {
